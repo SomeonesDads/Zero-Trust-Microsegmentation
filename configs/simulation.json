@@ -1,0 +1,8 @@
+{
+  "window_seconds": 10.0,
+  "false_positive_target": 0.01,
+  "enforcement_mode": "dry-run",
+  "seed": 7,
+  "simulation_events": 40
+}
+
