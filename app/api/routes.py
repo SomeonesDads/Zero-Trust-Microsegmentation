@@ -8,7 +8,9 @@ router = APIRouter()
 @router.get("/health")
 def health(request: Request) -> dict:
     state = request.app.state.orchestrator
-    return {"status": "ok", "mode": state.enforcer.mode, "events": len(state.events)}
+    return {"status": "error" if state.status == "failed" else "ok", "source": "simulator",
+            "mode": state.enforcer.mode, "events": len(state.events), "pipeline": state.status,
+            "error": state.error}
 
 
 @router.get("/events")
@@ -34,5 +36,6 @@ def policies(request: Request) -> list[dict]:
 @router.get("/agent-status")
 def agent_status(request: Request) -> dict:
     state = request.app.state.orchestrator
-    return {"graph_observer": "running", "threat_analysis": "running", "enforcement": state.enforcer.mode}
+    return {"graph_observer": state.status, "threat_analysis": state.status,
+            "enforcement": state.enforcer.mode, "error": state.error}
 

@@ -1,0 +1,30 @@
+{
+  "name": "ztm",
+  "container_count": 15,
+  "link_subnet": "10.77.0.0/30",
+  "host1_ip": "10.77.0.1",
+  "host2_ip": "10.77.0.2",
+  "frontend_subnet": "10.77.10.0/24",
+  "frontend_gateway": "10.77.10.1",
+  "application_subnet": "10.77.20.0/24",
+  "data_subnet": "10.77.30.0/24",
+  "bridges": {
+    "frontend": "ztm-front",
+    "application": "ztm-app",
+    "data": "ztm-data"
+  },
+  "web_addresses": [
+    "10.77.10.11",
+    "10.77.10.12"
+  ],
+  "web_port": 8080,
+  "notes": [
+    "IPv4 only; dedicated private /30 link configured separately on each host.",
+    "15 containers: 2 web, 2 auth, 2 API, 2 Redis, 2 Postgres, 4 inert decoys, 1 simulation controller.",
+    "Postgres instances have independent lab data, not streaming replication.",
+    "Only web addresses are routed to Host 2; application/data bridges are unnumbered.",
+    "Controller runs M1 simulation only; live telemetry integration begins in M3/M4.",
+    "Runtime sysctls only; prepare prints a plan unless --apply is supplied.",
+    "Bridge filtering on each container veth covers same-bridge traffic in M5."
+  ]
+}

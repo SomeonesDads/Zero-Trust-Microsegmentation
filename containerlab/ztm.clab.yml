@@ -1,0 +1,385 @@
+{
+  "name": "ztm",
+  "topology": {
+    "defaults": {
+      "network-mode": "none",
+      "privileged": false,
+      "cap-add": [
+        "NET_ADMIN"
+      ],
+      "sysctls": {
+        "net.ipv4.ip_forward": "0",
+        "net.ipv6.conf.all.disable_ipv6": "1"
+      }
+    },
+    "nodes": {
+      "ztm-front": {
+        "kind": "bridge"
+      },
+      "ztm-app": {
+        "kind": "bridge"
+      },
+      "ztm-data": {
+        "kind": "bridge"
+      },
+      "web-1": {
+        "kind": "linux",
+        "image": "ztm-web:m2",
+        "labels": {
+          "ztm.role": "web",
+          "ztm.mode": "lab"
+        },
+        "env": {},
+        "exec": [
+          "ip address replace 10.77.10.11/24 dev eth1",
+          "ip link set dev eth1 up",
+          "ip address replace 10.77.20.11/24 dev eth2",
+          "ip link set dev eth2 up",
+          "ip route replace 10.77.0.0/30 via 10.77.10.1 dev eth1"
+        ],
+        "binds": [
+          "../services/web/nginx.conf:/etc/nginx/nginx.conf:ro"
+        ]
+      },
+      "auth-1": {
+        "kind": "linux",
+        "image": "ztm-auth:m2",
+        "labels": {
+          "ztm.role": "auth",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "LAB_APP_SECRET": "${LAB_APP_SECRET}",
+          "SHOP_USERNAME": "${SHOP_USERNAME}",
+          "SHOP_PASSWORD": "${SHOP_PASSWORD}"
+        },
+        "exec": [
+          "ip address replace 10.77.20.21/24 dev eth1",
+          "ip link set dev eth1 up"
+        ]
+      },
+      "api-1": {
+        "kind": "linux",
+        "image": "ztm-api:m2",
+        "labels": {
+          "ztm.role": "api",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "LAB_APP_SECRET": "${LAB_APP_SECRET}",
+          "LAB_POSTGRES_PASSWORD": "${LAB_POSTGRES_PASSWORD}",
+          "LAB_REDIS_PASSWORD": "${LAB_REDIS_PASSWORD}",
+          "REDIS_HOST": "10.77.30.41",
+          "POSTGRES_HOST": "10.77.30.51"
+        },
+        "exec": [
+          "ip address replace 10.77.20.31/24 dev eth1",
+          "ip link set dev eth1 up",
+          "ip address replace 10.77.30.31/24 dev eth2",
+          "ip link set dev eth2 up"
+        ]
+      },
+      "redis-1": {
+        "kind": "linux",
+        "image": "ztm-redis:m2",
+        "labels": {
+          "ztm.role": "redis",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "LAB_REDIS_PASSWORD": "${LAB_REDIS_PASSWORD}"
+        },
+        "exec": [
+          "ip address replace 10.77.30.41/24 dev eth1",
+          "ip link set dev eth1 up"
+        ]
+      },
+      "postgres-1": {
+        "kind": "linux",
+        "image": "ztm-postgres:m2",
+        "labels": {
+          "ztm.role": "postgres",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "POSTGRES_USER": "shop",
+          "POSTGRES_DB": "shop",
+          "POSTGRES_PASSWORD": "${LAB_POSTGRES_PASSWORD}"
+        },
+        "exec": [
+          "ip address replace 10.77.30.51/24 dev eth1",
+          "ip link set dev eth1 up"
+        ]
+      },
+      "web-2": {
+        "kind": "linux",
+        "image": "ztm-web:m2",
+        "labels": {
+          "ztm.role": "web",
+          "ztm.mode": "lab"
+        },
+        "env": {},
+        "exec": [
+          "ip address replace 10.77.10.12/24 dev eth1",
+          "ip link set dev eth1 up",
+          "ip address replace 10.77.20.12/24 dev eth2",
+          "ip link set dev eth2 up",
+          "ip route replace 10.77.0.0/30 via 10.77.10.1 dev eth1"
+        ],
+        "binds": [
+          "../services/web/nginx.conf:/etc/nginx/nginx.conf:ro"
+        ]
+      },
+      "auth-2": {
+        "kind": "linux",
+        "image": "ztm-auth:m2",
+        "labels": {
+          "ztm.role": "auth",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "LAB_APP_SECRET": "${LAB_APP_SECRET}",
+          "SHOP_USERNAME": "${SHOP_USERNAME}",
+          "SHOP_PASSWORD": "${SHOP_PASSWORD}"
+        },
+        "exec": [
+          "ip address replace 10.77.20.22/24 dev eth1",
+          "ip link set dev eth1 up"
+        ]
+      },
+      "api-2": {
+        "kind": "linux",
+        "image": "ztm-api:m2",
+        "labels": {
+          "ztm.role": "api",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "LAB_APP_SECRET": "${LAB_APP_SECRET}",
+          "LAB_POSTGRES_PASSWORD": "${LAB_POSTGRES_PASSWORD}",
+          "LAB_REDIS_PASSWORD": "${LAB_REDIS_PASSWORD}",
+          "REDIS_HOST": "10.77.30.42",
+          "POSTGRES_HOST": "10.77.30.52"
+        },
+        "exec": [
+          "ip address replace 10.77.20.32/24 dev eth1",
+          "ip link set dev eth1 up",
+          "ip address replace 10.77.30.32/24 dev eth2",
+          "ip link set dev eth2 up"
+        ]
+      },
+      "redis-2": {
+        "kind": "linux",
+        "image": "ztm-redis:m2",
+        "labels": {
+          "ztm.role": "redis",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "LAB_REDIS_PASSWORD": "${LAB_REDIS_PASSWORD}"
+        },
+        "exec": [
+          "ip address replace 10.77.30.42/24 dev eth1",
+          "ip link set dev eth1 up"
+        ]
+      },
+      "postgres-2": {
+        "kind": "linux",
+        "image": "ztm-postgres:m2",
+        "labels": {
+          "ztm.role": "postgres",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "POSTGRES_USER": "shop",
+          "POSTGRES_DB": "shop",
+          "POSTGRES_PASSWORD": "${LAB_POSTGRES_PASSWORD}"
+        },
+        "exec": [
+          "ip address replace 10.77.30.52/24 dev eth1",
+          "ip link set dev eth1 up"
+        ]
+      },
+      "decoy-1": {
+        "kind": "linux",
+        "image": "ztm-decoy:m2",
+        "labels": {
+          "ztm.role": "decoy",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "SERVICE_NAME": "decoy-1"
+        },
+        "exec": [
+          "ip address replace 10.77.20.201/24 dev eth1",
+          "ip link set dev eth1 up"
+        ]
+      },
+      "decoy-2": {
+        "kind": "linux",
+        "image": "ztm-decoy:m2",
+        "labels": {
+          "ztm.role": "decoy",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "SERVICE_NAME": "decoy-2"
+        },
+        "exec": [
+          "ip address replace 10.77.20.202/24 dev eth1",
+          "ip link set dev eth1 up"
+        ]
+      },
+      "decoy-3": {
+        "kind": "linux",
+        "image": "ztm-decoy:m2",
+        "labels": {
+          "ztm.role": "decoy",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "SERVICE_NAME": "decoy-3"
+        },
+        "exec": [
+          "ip address replace 10.77.30.203/24 dev eth1",
+          "ip link set dev eth1 up"
+        ]
+      },
+      "decoy-4": {
+        "kind": "linux",
+        "image": "ztm-decoy:m2",
+        "labels": {
+          "ztm.role": "decoy",
+          "ztm.mode": "lab"
+        },
+        "env": {
+          "SERVICE_NAME": "decoy-4"
+        },
+        "exec": [
+          "ip address replace 10.77.30.204/24 dev eth1",
+          "ip link set dev eth1 up"
+        ]
+      },
+      "controller": {
+        "kind": "linux",
+        "image": "ztm-controller:m2",
+        "labels": {
+          "ztm.role": "controller",
+          "ztm.mode": "simulation"
+        },
+        "env": {},
+        "cap-add": []
+      }
+    },
+    "links": [
+      {
+        "endpoints": [
+          "web-1:eth1",
+          "ztm-front:ztmv1"
+        ]
+      },
+      {
+        "endpoints": [
+          "web-1:eth2",
+          "ztm-app:ztmv2"
+        ]
+      },
+      {
+        "endpoints": [
+          "auth-1:eth1",
+          "ztm-app:ztmv3"
+        ]
+      },
+      {
+        "endpoints": [
+          "api-1:eth1",
+          "ztm-app:ztmv4"
+        ]
+      },
+      {
+        "endpoints": [
+          "api-1:eth2",
+          "ztm-data:ztmv5"
+        ]
+      },
+      {
+        "endpoints": [
+          "redis-1:eth1",
+          "ztm-data:ztmv6"
+        ]
+      },
+      {
+        "endpoints": [
+          "postgres-1:eth1",
+          "ztm-data:ztmv7"
+        ]
+      },
+      {
+        "endpoints": [
+          "web-2:eth1",
+          "ztm-front:ztmv8"
+        ]
+      },
+      {
+        "endpoints": [
+          "web-2:eth2",
+          "ztm-app:ztmv9"
+        ]
+      },
+      {
+        "endpoints": [
+          "auth-2:eth1",
+          "ztm-app:ztmv10"
+        ]
+      },
+      {
+        "endpoints": [
+          "api-2:eth1",
+          "ztm-app:ztmv11"
+        ]
+      },
+      {
+        "endpoints": [
+          "api-2:eth2",
+          "ztm-data:ztmv12"
+        ]
+      },
+      {
+        "endpoints": [
+          "redis-2:eth1",
+          "ztm-data:ztmv13"
+        ]
+      },
+      {
+        "endpoints": [
+          "postgres-2:eth1",
+          "ztm-data:ztmv14"
+        ]
+      },
+      {
+        "endpoints": [
+          "decoy-1:eth1",
+          "ztm-app:ztmv15"
+        ]
+      },
+      {
+        "endpoints": [
+          "decoy-2:eth1",
+          "ztm-app:ztmv16"
+        ]
+      },
+      {
+        "endpoints": [
+          "decoy-3:eth1",
+          "ztm-data:ztmv17"
+        ]
+      },
+      {
+        "endpoints": [
+          "decoy-4:eth1",
+          "ztm-data:ztmv18"
+        ]
+      }
+    ]
+  }
+}

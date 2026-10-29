@@ -56,6 +56,10 @@ class Finding(BaseModel):
     features: dict[str, float]
     explanation: str
     recommended_mitigation: str = "scoped_quarantine"
+    src_container: str | None = None
+    dst_container: str | None = None
+    dst_port: int | None = Field(default=None, ge=1, le=65535)
+    protocol: str = "tcp"
 
 
 class Policy(BaseModel):
@@ -63,6 +67,7 @@ class Policy(BaseModel):
     source: str
     destination: str
     port: int | None = None
+    protocol: str = "tcp"
     action: str = "drop"
     mode: str = "dry-run"
     state: str = "proposed"
