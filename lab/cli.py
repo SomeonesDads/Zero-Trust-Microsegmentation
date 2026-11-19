@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import secrets
 import shutil
 import subprocess
@@ -15,6 +16,7 @@ from urllib.request import Request, build_opener, ProxyHandler
 
 from lab.network import cleanup, prepare, run, validate_interface
 from lab.topology import DEFAULT_CONFIG, ROOT, SECRET_KEYS, build_topology, load_config, render
+from lab.validation import clock_status, host2_isolation, connection_probe
 
 DEFAULT_OUTPUT = ROOT / "data" / "lab"
 IMAGES = ("web", "auth", "api", "redis", "postgres", "decoy", "controller")
@@ -22,7 +24,7 @@ IMAGES = ("web", "auth", "api", "redis", "postgres", "decoy", "controller")
 
 def inspect() -> dict:
     tools = {tool: shutil.which(tool) for tool in
-             ("docker", "containerlab", "clang", "bpftool", "pkg-config", "chronyc", "nft", "ip", "sysctl", "ethtool")}
+             ("docker", "containerlab", "clang", "bpftool", "pkg-config", "chronyc", "nft", "ip", "sysctl", "ethtool", "tc", "nsenter", "conntrack")}
     versions = {}
     for tool, flag in (("docker", "--version"), ("containerlab", "version"),
                        ("clang", "--version"), ("bpftool", "version"), ("chronyc", "--version")):
@@ -30,9 +32,13 @@ def inspect() -> dict:
             versions[tool] = run([tools[tool], flag], check=False).stdout.splitlines()[:1]
     daemon = run(["docker", "info", "--format", "{{.ServerVersion}}"], check=False) if tools["docker"] else None
     libbpf = run(["pkg-config", "--modversion", "libbpf"], check=False) if tools["pkg-config"] else None
-    kernel = tuple(int(value) for value in platform.release().split(".")[:2])
+    linux = platform.system() == "Linux"
+    match = re.match(r"(\d+)\.(\d+)", platform.release())
+    kernel = tuple(map(int, match.groups())) if match else (0, 0)
+    bcc = run(["/usr/bin/python3", "-c", "from bcc import BPF; print('available')"], check=False) if linux else None
     return {"os": platform.platform(), "python": platform.python_version(), "kernel": platform.release(),
-            "kernel_supported": kernel >= (5, 15),
+            "linux": linux, "kernel_supported": linux and kernel >= (5, 15),
+            "bcc": bool(bcc and bcc.returncode == 0), "clock": clock_status(),
             "btf": Path("/sys/kernel/btf/vmlinux").is_file(), "tools": tools, "versions": versions,
             "docker_daemon": bool(daemon and daemon.returncode == 0),
             "libbpf": libbpf.stdout.strip() if libbpf and libbpf.returncode == 0 else None,
@@ -42,6 +48,10 @@ def inspect() -> dict:
 def require_host_prerequisites() -> None:
     report = inspect()
     problems = list(report["missing"])
+    if not report["linux"]:
+        problems.append("Linux host")
+    if not report["bcc"]:
+        problems.append("BCC in /usr/bin/python3 (python3-bpfcc)")
     if not report["kernel_supported"]:
         problems.append("Linux kernel >= 5.15")
     if not report["btf"]:
@@ -127,9 +137,9 @@ def verify(config: dict, env: dict[str, str]) -> dict:
     result = run(["docker", "ps", "-q", "--filter", f"label=containerlab={config['name']}"])
     ids = result.stdout.split()
     if len(ids) != config["container_count"]:
-        raise RuntimeError(f"expected 15 running containers, found {len(ids)}")
+        raise RuntimeError(f"expected {config['container_count']} running containers, found {len(ids)}")
     containers = json.loads(run(["docker", "inspect", *ids]).stdout)
-    expected_names = {"/clab-ztm-" + name for name, node in build_topology(config)["topology"]["nodes"].items()
+    expected_names = {f"/clab-{config['name']}-" + name for name, node in build_topology(config)["topology"]["nodes"].items()
                       if node["kind"] == "linux"}
     if {item["Name"] for item in containers} != expected_names:
         raise RuntimeError("running containers do not match the expected topology")
@@ -149,7 +159,7 @@ def verify(config: dict, env: dict[str, str]) -> dict:
         run(["docker", "exec", f"clab-ztm-auth-{replica}", "node", "-e",
              "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"])
     checks = [smoke(f"http://{ip}:8080", config, env) for ip in config["web_addresses"]]
-    return {"containers": len(ids), "host1_checks": checks,
+    return {"containers": len(ids), "host1_checks": checks, "clock": clock_status(),
             "host2_acceptance": "Run smoke and load on Host 2 after installing its frontend route."}
 
 
@@ -158,7 +168,7 @@ def host2_route(config: dict, interface: str, apply: bool = False) -> dict:
     command = ["ip", "route", "replace", config["frontend_subnet"],
                "via", config["host1_ip"], "dev", interface]
     if apply:
-        if os.geteuid() != 0:
+        if getattr(os, "geteuid", lambda: -1)() != 0:
             raise PermissionError("host2-route --apply requires root")
         data = json.loads(run(["ip", "-j", "address", "show", "dev", interface]).stdout)
         if not any(item["local"] == config["host2_ip"] for link in data for item in link["addr_info"]):
@@ -177,8 +187,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--env-file", type=Path)
+    parser.add_argument("--report", type=Path, help="write the command result as JSON (never includes secrets)")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("inspect", "secrets", "render", "build", "deploy", "destroy", "verify"):
+    for name in ("inspect", "secrets", "render", "build", "deploy", "destroy", "verify", "clock-status"):
         commands.add_parser(name)
     for name in ("prepare", "host2-route"):
         sub = commands.add_parser(name)
@@ -186,6 +197,10 @@ def main(argv: list[str] | None = None) -> int:
         sub.add_argument("--apply", action="store_true")
     sub = commands.add_parser("cleanup")
     sub.add_argument("--apply", action="store_true")
+    sub = commands.add_parser("verify-host2")
+    sub.add_argument("--interface", required=True)
+    sub = commands.add_parser("connection-probe")
+    sub.add_argument("--count", type=int, default=20)
     for name in ("smoke", "load"):
         sub = commands.add_parser(name)
         sub.add_argument("--host", required=True)
@@ -200,6 +215,12 @@ def main(argv: list[str] | None = None) -> int:
         state_path = args.output / "host-state.json"
         if args.command == "inspect":
             result = inspect()
+        elif args.command == "clock-status":
+            result = clock_status()
+        elif args.command == "verify-host2":
+            result = host2_isolation(config, args.interface)
+        elif args.command == "connection-probe":
+            result = connection_probe(config, args.count)
         elif args.command == "secrets":
             result = make_secrets(env_path)
         elif args.command == "render":
@@ -245,8 +266,11 @@ def main(argv: list[str] | None = None) -> int:
                            env=env, check=True)
             result = {"configured_requests_per_second": args.rps,
                       "measured_throughput": "See locust_stats.csv; configured RPS is only a pacing target."}
+        if args.report:
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            args.report.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(result, indent=2))
-        return 0
+        return 1 if result.get("passed") is False or (args.command == "clock-status" and not result["latency_valid"]) else 0
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         print(f"lab: {error}", file=sys.stderr)
         return 1

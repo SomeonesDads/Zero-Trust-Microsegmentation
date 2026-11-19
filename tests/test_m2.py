@@ -4,6 +4,7 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import subprocess
 import time
 
@@ -60,7 +61,8 @@ def test_committed_topology_matches_renderer_and_has_no_secrets(tmp_path) -> Non
 def test_secrets_are_private_and_environment_overrides_file(tmp_path, monkeypatch) -> None:
     path = tmp_path / "lab.env"
     make_secrets(path)
-    assert path.stat().st_mode & 0o777 == 0o600
+    if os.name == "posix":
+        assert path.stat().st_mode & 0o777 == 0o600
     assert set(line.split("=")[0] for line in path.read_text().splitlines()) == set(SECRET_KEYS)
     with pytest.raises(FileExistsError):
         make_secrets(path)
@@ -209,7 +211,7 @@ def test_host_preparation_and_cleanup_preserve_scope_and_original_tuning(tmp_pat
             output = []
         return CompletedProcess(argv, 0, json.dumps(output), "")
 
-    monkeypatch.setattr("lab.network.os.geteuid", lambda: 0)
+    monkeypatch.setattr("lab.network.os.geteuid", lambda: 0, raising=False)
     monkeypatch.setattr("lab.network.run", fake_run)
     state_path = tmp_path / "state.json"
     prepare(CONFIG, "lab0", state_path, apply=True)
@@ -256,7 +258,7 @@ def test_host_preparation_rejects_conflicts_before_mutations(tmp_path, monkeypat
             raise AssertionError("unexpected mutation: " + repr(argv))
         return CompletedProcess(argv, 0, json.dumps(output), "")
 
-    monkeypatch.setattr("lab.network.os.geteuid", lambda: 0)
+    monkeypatch.setattr("lab.network.os.geteuid", lambda: 0, raising=False)
     monkeypatch.setattr("lab.network.run", fake_run)
     with pytest.raises(RuntimeError):
         prepare(CONFIG, "lab0", tmp_path / "state.json", apply=True)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zero-trust-microsegmentation"
-version = "0.1.0"
+version = "0.4.0"
 requires-python = ">=3.10"
 dependencies = [
   "fastapi==0.115.6",
@@ -21,10 +21,15 @@ dependencies = [
 ztm-sim = "app.main:run"
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["linux_lab: requires an explicitly enabled, deployed Linux Containerlab testbed"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["app*", "lab*"]
+
+[tool.setuptools.package-data]
+app = ["telemetry/collector/*.c", "telemetry/collector/*.py"]
 
