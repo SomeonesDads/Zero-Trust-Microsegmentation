@@ -1,0 +1,14 @@
+{
+  "source": "live",
+  "model_path": "data/models/baseline.json",
+  "lab_config": "configs/lab.json",
+  "output_dir": "data/runs/live-001",
+  "collector_python": "/usr/bin/python3",
+  "conntrack": true,
+  "window_seconds": 10,
+  "false_positive_target": 0.01,
+  "enforcement_mode": "dry-run",
+  "queue_size": 4096,
+  "retention": 10000,
+  "identity_refresh_seconds": 5
+}

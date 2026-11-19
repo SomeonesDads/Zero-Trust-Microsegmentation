@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import json
+import asyncio
 from pathlib import Path
 from collections.abc import AsyncIterator
 
 from app.models import NetworkEvent
+from app.storage import read_events
 
 
 class ReplaySource:
@@ -14,7 +15,7 @@ class ReplaySource:
         self.path = Path(path)
 
     async def events(self) -> AsyncIterator[NetworkEvent]:
-        for line in self.path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                yield NetworkEvent.model_validate(json.loads(line))
+        for event in read_events(self.path):
+            yield event
+            await asyncio.sleep(0)
 

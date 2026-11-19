@@ -1,0 +1,9 @@
+{
+  "source": "replay",
+  "replay_path": "data/captures/evaluation",
+  "model_path": "data/models/baseline.json",
+  "output_dir": "data/runs/replay-001",
+  "window_seconds": 10,
+  "false_positive_target": 0.01,
+  "enforcement_mode": "dry-run"
+}

@@ -32,6 +32,8 @@ class EnforcementBackend:
             and policy.destination in (event.dst_service, event.dst_container)
             and (policy.port is None or policy.port == event.dst_port)
             and policy.protocol == event.protocol
+            and (policy.src_container_id is None or policy.src_container_id == event.src_container_id)
+            and (policy.dst_container_id is None or policy.dst_container_id == event.dst_container_id)
             for policy in self.active.values())
 
 
@@ -44,17 +46,20 @@ class DryRunEnforcer:
         self.audit: list[dict] = []
 
     def propose(self, finding: Finding) -> Policy:
+        if finding.attribution != "resolved":
+            raise ValueError("policy requires resolved container attribution")
         source = finding.src_container or finding.source
         destination = finding.dst_container or finding.destination
         if not source or not destination or source == destination:
             raise ValueError("a policy requires distinct, identified source and destination")
-        key = f"{source}|{destination}|{finding.dst_port}|{finding.protocol}|scoped"
+        key = f"{finding.src_container_id or source}|{finding.dst_container_id or destination}|{finding.dst_port}|{finding.protocol}|scoped"
         policy_id = sha256(key.encode()).hexdigest()[:16]
         if policy_id in self.policies:
             return self.policies[policy_id]
         policy = Policy(policy_id=policy_id, source=source, destination=destination,
                         port=finding.dst_port, protocol=finding.protocol,
-                        mode=self.mode, reason=finding.explanation)
+                        mode=self.mode, reason=finding.explanation,
+                        src_container_id=finding.src_container_id, dst_container_id=finding.dst_container_id)
         self.policies[policy_id] = policy
         self._audit(policy, "proposed")
         if self.mode == "auto-approve":

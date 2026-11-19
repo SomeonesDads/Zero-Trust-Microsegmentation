@@ -66,7 +66,7 @@ def prepare(config: dict, interface: str, state_path: Path, apply: bool = False)
             "apply": apply}
     if not apply:
         return plan
-    if os.geteuid() != 0:
+    if getattr(os, "geteuid", lambda: -1)() != 0:
         raise PermissionError("prepare --apply requires root for bridges, nftables and sysctls")
     previous = json.loads(state_path.read_text()) if state_path.exists() else None
     if previous and (previous["config"] != config or previous["interface"] != interface):
@@ -121,7 +121,7 @@ def cleanup(state_path: Path, apply: bool = False) -> dict:
     if not apply:
         return {"restore_sysctls": state["sysctls"], "remove_owned_bridges": state["config"]["bridges"],
                 "remove_owned_table": TABLE, "apply": False}
-    if os.geteuid() != 0:
+    if getattr(os, "geteuid", lambda: -1)() != 0:
         raise PermissionError("cleanup --apply requires root")
     bridges = state["config"]["bridges"].values()
     for bridge in bridges:
